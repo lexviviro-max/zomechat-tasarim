@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ZOMEchat - Canlı Görüntülü Sohbet</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { 
+            width: 100%; 
+            height: 100%; 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            background: #090b0e; 
+            color: #f0f6fc;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* GİRİŞ VE KAYIT EKRANI (İSTEDİĞİN SON MODERN TASARIM) */
+        .login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #090b0e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: #11141a;
+            border: 1px solid #1f242c;
+            border-radius: 24px;
+            padding: 35px 30px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+        }
+
+        .login-logo { font-size: 36px; font-weight: 800; color: white; margin-bottom: 8px; }
+        .login-logo .sub { color: #8a2be2; }
+        .login-desc { color: #8b949e; font-size: 14px; line-height: 1.5; margin-bottom: 25px; }
+
+        .social-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid #1f242c;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.2s ease;
+            color: white;
+            background: #1a1f26; 
+            border-color: #2d3540;
+        }
+        .social-btn:active { transform: scale(0.98); }
+        .social-btn:hover { background: #252c36; }
+        .social-btn i { color: #ea4335; }
+
+        /* SEPARATOR */
+        .separator {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: #57606a;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+        .separator::before, .separator::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #1f242c;
+        }
+        .separator:not(:empty)::before { margin-right: .5em; }
+        .separator:not(:empty)::after { margin-left: .5em; }
+
+        /* SEKMELER VE FORM */
+        .auth-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tab-btn { flex: 1; padding: 8px; background: transparent; border: none; color: #8b949e; cursor: pointer; font-weight: 600; font-size: 14px; border-bottom: 2px solid transparent; }
+        .tab-btn.active { color: #8a2be2; border-bottom-color: #8a2be2; }
+
+        .input-box { width: 100%; padding: 12px 16px; background: #090b0e; border: 1px solid #1f242c; border-radius: 10px; color: white; font-size: 14px; margin-bottom: 12px; outline: none; }
+        .input-box:focus { border-color: #8a2be2; }
+        
+        .submit-btn { width: 100%; padding: 14px; background: #8a2be2; border: none; border-radius: 10px; color: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: background 0.2s; }
+        .submit-btn:hover { background: #9b46f8; }
+
+        /* UYGULAMA ARAYÜZÜ */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background: #11141a;
+            border-bottom: 1px solid #1f242c;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+        }
+
+        .logo-main { font-size: 22px; font-weight: 800; color: white; }
+        .logo-sub { color: #8a2be2; }
+        #status { font-size: 12px; color: #8b949e; background: #1a1f26; padding: 6px 14px; border-radius: 20px; border: 1px solid #2d3540; }
+        
+        .logout-btn { background: #21262d; border: 1px solid #30363d; color: #f0f6fc; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .logout-btn:hover { background: #2f363d; color: #ff453a; border-color: #ff453a; }
+
+        /* ANA YERLEŞİM */
+        .main-layout {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+            padding: 75px 15px 185px 15px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .video-container { display: flex; flex-direction: row; gap: 15px; width: 100%; max-width: 1200px; height: 100%; }
+        .video-box { flex: 1; height: 100%; background: #11141a; border-radius: 16px; border: 1px solid #1f242c; position: relative; overflow: hidden; }
+
+        .user-tag {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(17, 20, 26, 0.85);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-dot { width: 8px; height: 8px; background: #00ff66; border-radius: 50%; }
+        .swipe-hint { color: #8a2be2; font-size: 11px; }
+
+        video { width: 100%; height: 100%; object-fit: cover; background: #0d1117; }
+        #localVideo { transform: scaleX(-1); }
+        #remoteVideoContainer { cursor: grab; }
+
+        /* ALT SOHBET PANELİ */
+        .bottom-chat-frame {
+            position: fixed;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 500px;
+            height: 155px;
+            background: #11141a;
+            border: 1px solid #1f242c;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 1000;
+        }
+
+        #chatMessages { flex: 1; overflow-y: auto; padding: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
+        .msg { padding: 8px 14px; border-radius: 12px; max-width: 78%; word-wrap: break-word; }
+        .msg.me { background: #8a2be2; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .msg.stranger { background: #1f242c; color: #f0f6fc; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #2d3540; }
+        .msg.system { background: rgba(255, 255, 255, 0.04); color: #8b949e; align-self: center; font-size: 11px; padding: 4px 10px; border-radius: 6px; }
+
+        .input-group { display: flex; border-top: 1px solid #1f242c; padding: 10px; background: #161b22; gap: 8px; }
+        #chatInput { flex: 1; padding: 9px 16px; background: #090b0e; border: 1px solid #1f242c; border-radius: 20px; color: white; font-size: 14px; outline: none; }
+        #sendBtn { width: 36px; height: 36px; background: #8a2be2; color: white; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        /* MOBİL RESPONSIVE TASARIM */
+        @media (max-width: 768px) {
+            .main-layout { padding: 70px 8px 170px 8px; }
+            .video-container { flex-direction: column; gap: 8px; }
+            .video-box { width: 100%; height: calc(50% - 4px); }
+            .bottom-chat-frame { width: calc(100vw - 16px); bottom: 8px; height: 145px; }
+            .login-card { padding: 25px 20px; border-radius: 20px; }
+            .login-logo { font-size: 30px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loginScreen" class="login-screen">
+        <div class="login-card">
+            <div class="login-logo">ZOME<span class="sub">chat</span></div>
+            <div class="login-desc">Devam etmek için giriş yapın veya kayıt olun.</div>
+            
+            <button class="social-btn" id="googleLoginBtn" onclick="window.loginWithGoogle()">
+                <i class="fa-brands fa-google"></i> Google ile Giriş Yap
+            </button>
+
+            <div class="separator">veya e-posta kullanın</div>
+
+            <div class="auth-tabs">
+                <button id="loginTab" class="tab-btn active" onclick="setAuthMode('login')">Giriş Yap</button>
+                <button id="registerTab" class="tab-btn" onclick="setAuthMode('register')">Kayıt Ol</button>
+            </div>
+
+            <div id="authForm">
+                <input type="text" id="authName" class="input-box" placeholder="Kullanıcı Adınız" style="display: none;" autocomplete="name">
+                <input type="email" id="authEmail" class="input-box" placeholder="E-posta Adresiniz" autocomplete="email">
+                <input type="password" id="authPassword" class="input-box" placeholder="Şifreniz" autocomplete="current-password">
+                <button id="authSubmitBtn" class="submit-btn" onclick="handleEmailAuth()">Giriş Yap</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="navbar">
+        <div class="logo-area"><span class="logo-main">ZOME<span class="logo-sub">chat</span></span></div>
+        <p id="status">Lütfen giriş yapın...</p>
+        <button class="logout-btn" id="logoutBtn" onclick="window.logoutUser()"><i class="fa-solid fa-right-from-bracket"></i> Çıkış Yap</button>
+    </div>
+
+    <div class="main-layout">
+        <div class="video-container">
+            <div class="video-box">
+                <div class="user-tag"><div class="status-dot"></div> <span id="localUsername">Sen</span></div>
+                <video id="localVideo" autoplay playsinline muted></video>
+            </div>
+            <div class="video-box" id="remoteVideoContainer">
+                <div class="user-tag"><div class="status-dot"></div> <span id="remoteUsername">Yabancı</span> <span class="swipe-hint">| Sağa Kaydır</span></div>
+                <video id="remoteVideo" autoplay playsinline></video>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-chat-frame">
+        <div id="chatMessages"></div>
+        <div class="input-group">
+            <input type="text" id="chatInput" placeholder="Mesajınızı yazın..." autocomplete="off">
+            <button id="sendBtn"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <script>
+        // Orijinal Firebase v8 Konfigürasyonu
+        const firebaseConfig = {
+            apiKey: "AIzaSyDjfL1MIzV_ILaFMJPjqgs53Yi9Zz6mDHA",
+            authDomain: "proje-gir.firebaseapp.com",
+            projectId: "proje-gir",
+            storageBucket: "proje-gir.firebasestorage.app",
+            messagingSenderId: "790926962812",
+            appId: "1:790926962812:web:35ca08a8b2276609afd9f9"
+        };
+        
+        if (!firebase.apps.length) { 
+            firebase.initializeApp(firebaseConfig); 
+        }
+        
+        window.auth = firebase.auth();
+        window.googleProvider = new firebase.auth.GoogleAuthProvider();
+
+        let currentMode = 'login';
+
+        // Giriş / Kayıt Sekme Yönetimi
+        window.setAuthMode = function(mode) {
+            currentMode = mode;
+            const nameInput = document.getElementById('authName');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
+
+            if(mode === 'register') {
+                if (nameInput) nameInput.style.display = 'block';
+                if (submitBtn) submitBtn.innerText = 'Kayıt Ol';
+                if (registerTab) registerTab.classList.add('active');
+                if (loginTab) loginTab.classList.remove('active');
+            } else {
+                if (nameInput) nameInput.style.display = 'none';
+                if (submitBtn) submitBtn.innerText = 'Giriş Yap';
+                if (loginTab) loginTab.classList.add('active');
+                if (registerTab) registerTab.classList.remove('active');
+            }
+        };
+
+        // Oturum Durumu Kontrolü
+        window.auth.onAuthStateChanged((user) => {
+            if (user) {
+                const name = user.displayName || user.email.split('@')[0];
+                if (typeof window.startAppWithUser === 'function') {
+                    window.startAppWithUser(name);
+                }
+            } else {
+                const loginScreen = document.getElementById('loginScreen');
+                if (loginScreen) loginScreen.style.display = 'flex';
+            }
+        });
+
+        // KESİN ÇÖZÜM: Doğrudan Global Fonksiyon Olarak Atanan Google Giriş Metodu
+        window.loginWithGoogle = function() {
+            window.auth.signInWithPopup(window.googleProvider)
+                .then((result) => {
+                    const name = result.user.displayName || "Google Kullanıcısı";
+                    if (typeof window.startAppWithUser === 'function') {
+                        window.startAppWithUser(name);
+                    }
+                })
+                .catch((error) => {
+                    console.error("Google Giriş Hatası:", error);
+                    alert("Giriş esnasında bir hata oluştu: " + error.message);
+                });
+        };
+
+        // E-posta Kimlik Doğrulama İşlemleri
+        window.handleEmailAuth = function() {
+            const emailEl = document.getElementById('authEmail');
+            const passwordEl = document.getElementById('authPassword');
+            const nameEl = document.getElementById('authName');
+
+            if (!emailEl || !passwordEl) return;
+
+            const email = emailEl.value.trim();
+            const password = passwordEl.value;
+            const name = nameEl ? nameEl.value.trim() : "";
+
+            if (!email || !password) {
+                alert("Lütfen tüm alanları doldurun.");
+                return;
+            }
+
+            if (currentMode === 'register') {
+                if(!name) { alert("Lütfen bir kullanıcı adı belirleyin."); return; }
+                window.auth.createUserWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        return userCredential.user.updateProfile({ displayName: name }).then(() => {
+                            if (typeof window.startAppWithUser === 'function') {
+                                window.startAppWithUser(name);
+                            }
+                        });
+                    })
+                    .catch((error) => { alert("Kayıt Hatası: " + error.message); });
+            } else {
+                window.auth.signInWithEmailAndPassword(email, password)
+                    .catch((error) => { alert("Giriş Hatası: " + error.message); });
+            }
+        };
+
+        // Çıkış Yap Fonksiyonu
+        window.logoutUser = function() {
+            window.auth.signOut().then(() => {
+                window.location.reload(); 
+            }).catch((error) => {
+                console.error("Çıkış hatası:", error);
+            });
+        };
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>
