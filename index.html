@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ZOMEchat - Canlı Görüntülü Sohbet</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <style>
+        /* GENEL SIFIRLAMA VE TEMEL AYARLAR */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #0b0c10; 
+            color: #c5c6c7; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+        }
+
+        /* ÜST MENÜ (HEADER) */
+        header { 
+            background-color: #15191e; 
+            padding: 12px 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid #2c3540; 
+            z-index: 50;
+        }
+        .logo { font-size: 22px; font-weight: 900; color: #fff; letter-spacing: 1px; }
+        .logo span { color: #8a2be2; }
+        .user-controls { display: flex; align-items: center; gap: 12px; }
+        #localUsername { color: #8a2be2; font-weight: 600; font-size: 14px; }
+        .logout-btn { 
+            background: rgba(255, 74, 74, 0.1); 
+            border: 1px solid #ff4a4a; 
+            color: #ff4a4a; 
+            padding: 6px 12px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            font-size: 13px;
+            transition: 0.2s; 
+        }
+        .logout-btn:hover { background-color: #ff4a4a; color: #fff; }
+
+        /* ANA İÇERİK (VİDEO VE SOHBET) */
+        .main-container { 
+            display: flex; 
+            flex: 1; 
+            width: 100%;
+            height: calc(100vh - 55px);
+            overflow: hidden; 
+        }
+
+        /* VİDEO ALANI */
+        .video-section { 
+            flex: 1; 
+            position: relative; 
+            background-color: #000; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        #remoteVideo { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* YEREL VİDEO (KENDİ KAMERAMIZ) */
+        #localVideo { 
+            position: absolute; 
+            top: 20px; 
+            right: 20px; 
+            width: 130px; 
+            height: 180px; 
+            object-fit: cover; 
+            border-radius: 12px; 
+            border: 2px solid #8a2be2; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6); 
+            z-index: 10; 
+            transform: scaleX(-1); 
+        }
+
+        .remote-info-tag { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            background-color: rgba(11, 12, 16, 0.7); 
+            padding: 6px 14px; 
+            border-radius: 20px; 
+            border-left: 3px solid #8a2be2; 
+            font-weight: 600; 
+            font-size: 13px;
+            z-index: 10; 
+            backdrop-filter: blur(4px);
+        }
+
+        .next-btn-container {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        .control-btn.skip { 
+            background-color: #8a2be2; 
+            border: none;
+            color: #fff; 
+            padding: 12px 24px;
+            border-radius: 30px; 
+            font-weight: bold; 
+            font-size: 15px; 
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+        .control-btn.skip:hover { background-color: #7322bd; transform: scale(1.05); }
+
+        /* SOHBET ALANI */
+        .chat-section { 
+            width: 350px; 
+            background-color: #111418; 
+            display: flex; 
+            flex-direction: column; 
+            border-left: 1px solid #2c3540; 
+        }
+        .chat-header { 
+            padding: 12px 15px; 
+            background-color: #15191e; 
+            font-weight: 600; 
+            font-size: 14px;
+            border-bottom: 1px solid #2c3540; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            color: #fff;
+        }
+        #chatMessages { 
+            flex: 1; 
+            padding: 15px; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+        }
+        .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
+        .msg.me { background-color: #8a2be2; color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .msg.stranger { background-color: #1c222b; color: #fff; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #2c3540; }
+        .msg.system { background-color: rgba(138, 43, 226, 0.1); color: #8a2be2; align-self: center; font-size: 12px; padding: 6px 12px; border-radius: 8px; text-align: center; }
+
+        .chat-input-area { 
+            padding: 15px; 
+            background-color: #15191e; 
+            display: flex; 
+            gap: 10px; 
+            border-top: 1px solid #2c3540; 
+        }
+        #chatInput { 
+            flex: 1; 
+            background-color: #0b0c10; 
+            border: 1px solid #2c3540; 
+            padding: 12px 15px; 
+            border-radius: 20px; 
+            color: #fff; 
+            font-size: 14px; 
+            outline: none; 
+        }
+        #chatInput:focus { border-color: #8a2be2; }
+        #sendBtn { 
+            background-color: #8a2be2; 
+            border: none; 
+            color: #fff; 
+            width: 44px; 
+            height: 44px; 
+            border-radius: 50%; 
+            cursor: pointer; 
+            font-size: 16px; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: 0.2s; 
+        }
+        #sendBtn:hover { background-color: #7322bd; }
+
+        /* GİRİŞ EKRANI (TAMAMEN TEMİZLENMİŞ, TIKLAMA SORUNSUZ YAPI) */
+        #loginScreen { 
+            position: fixed; 
+            inset: 0; 
+            background-color: rgba(11, 12, 16, 0.95); 
+            z-index: 99999; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            backdrop-filter: blur(8px);
+            padding: 20px;
+        }
+        .login-box { 
+            background-color: #15191e; 
+            padding: 40px 30px; 
+            border-radius: 20px; 
+            border: 1px solid #2c3540; 
+            width: 100%;
+            max-width: 400px; 
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8); 
+            text-align: center; 
+        }
+        .login-box h1 { font-size: 32px; color: #fff; margin-bottom: 8px; }
+        .login-box h1 span { color: #8a2be2; }
+        .login-box p { color: #8b949e; font-size: 14px; margin-bottom: 25px; }
+        
+        .google-btn { 
+            width: 100%; 
+            background-color: #1c222b; 
+            color: #fff; 
+            border: 1px solid #333c4d; 
+            padding: 14px; 
+            border-radius: 12px; 
+            font-size: 15px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            gap: 10px; 
+            margin-bottom: 20px; 
+            transition: background 0.2s; 
+        }
+        .google-btn:hover { background-color: #252d3a; }
+        
+        .divider { margin: 20px 0; color: #475467; font-size: 13px; display: flex; align-items: center; gap: 10px;}
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #2c3540; }
+
+        .auth-input { width: 100%; background-color: #0b0c10; border: 1px solid #2c3540; padding: 14px; border-radius: 10px; color: #fff; margin-bottom: 12px; font-size: 14px; outline: none; }
+        .auth-input:focus { border-color: #8a2be2; }
+        .auth-submit { width: 100%; background-color: #8a2be2; color: #fff; border: none; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+
+        /* ================= MOBİL UYUM (EN ÖNEMLİ KISIM) ================= */
+        @media (max-width: 768px) {
+            .main-container { 
+                flex-direction: column; /* Mobilde Videolar Üste, Sohbet Alta */
+            }
+            .video-section { 
+                flex: 0.45; /* Ekranın üst %45'i video */
+            }
+            .chat-section { 
+                width: 100%; 
+                flex: 0.55; /* Ekranın alt %55'i sohbet */
+                border-left: none; 
+                border-top: 1px solid #2c3540; 
+            }
+            #localVideo { 
+                width: 90px; 
+                height: 120px; 
+                top: auto;
+                bottom: 15px; 
+                right: 15px; 
+                border-width: 1px;
+            }
+            .next-btn-container {
+                bottom: 15px;
+                left: 15px;
+                transform: none;
+            }
+            .control-btn.skip {
+                padding: 10px 18px;
+                font-size: 13px;
+            }
+            .chat-input-area {
+                padding: 10px;
+                padding-bottom: 20px; /* iPhone alt çubuğu için boşluk */
+            }
+            .login-box { padding: 30px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loginScreen">
+        <div class="login-box">
+            <h1>ZOME<span>chat</span></h1>
+            <p>Devam etmek için giriş yapın.</p>
+            
+            <button class="google-btn" id="googleLoginBtn" onclick="girisYapGoogle()">
+                <i class="fa-brands fa-google" style="color: #ea4335; font-size: 18px;"></i> Google ile Giriş Yap
+            </button>
+            
+            <div class="divider">veya e-posta ile kayıt ol</div>
+            
+            <input type="text" id="authUsername" class="auth-input" placeholder="Kullanıcı Adınız (Sadece Kayıtta)">
+            <input type="email" id="authEmail" class="auth-input" placeholder="E-posta Adresiniz">
+            <input type="password" id="authPassword" class="auth-input" placeholder="Şifreniz">
+            <button id="authSubmitBtn" class="auth-submit" onclick="girisYapEmail()">Kayıt Ol / Giriş Yap</button>
+        </div>
+    </div>
+
+    <header>
+        <div class="logo">ZOME<span>chat</span></div>
+        <div class="user-controls">
+            <span id="localUsername">Yükleniyor...</span>
+            <button class="logout-btn" onclick="cikisYap()">Çıkış Yap</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="video-section">
+            <div class="remote-info-tag"><i class="fa-solid fa-user"></i> <span id="remoteUsername">Yabancı</span></div>
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+            
+            <div class="next-btn-container">
+                <button class="control-btn skip" onclick="if(typeof skipToNextUser === 'function') skipToNextUser();"><i class="fa-solid fa-forward"></i> Geç</button>
+            </div>
+        </div>
+
+        <div class="chat-section">
+            <div class="chat-header"><i class="fa-regular fa-comments"></i> Canlı Sohbet</div>
+            <div id="chatMessages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" placeholder="Mesaj gönder..." autocomplete="off">
+                <button id="sendBtn"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // FIREBASE V8 YAPILANDIRMASI
+        const firebaseConfig = {
+            apiKey: "AIzaSyDjfL1MIzV_ILaFMJPjqgs53Yi9Zz6mDHA",
+            authDomain: "proje-gir.firebaseapp.com",
+            projectId: "proje-gir",
+            storageBucket: "proje-gir.firebasestorage.app",
+            messagingSenderId: "790926962812",
+            appId: "1:790926962812:web:35ca08a8b2276609afd9f9"
+        };
+        
+        // Başlatma kontrolü
+        if (!firebase.apps.length) { 
+            firebase.initializeApp(firebaseConfig); 
+        }
+        
+        // Global Değişkenler
+        window.auth = firebase.auth();
+        window.googleProvider = new firebase.auth.GoogleAuthProvider();
+
+        // KULLANICI DURUMUNU DİNLE (Giriş yaptıysa ekranı kapat)
+        window.auth.onAuthStateChanged((user) => {
+            if (user) {
+                document.getElementById('loginScreen').style.display = 'none';
+                const name = user.displayName || user.email.split('@')[0];
+                document.getElementById('localUsername').innerText = name;
+                
+                // script.js içindeki WebRTC başlatma fonksiyonunu tetikle
+                if (typeof window.startAppWithUser === 'function') {
+                    window.startAppWithUser(name);
+                }
+            } else {
+                document.getElementById('loginScreen').style.display = 'flex';
+            }
+        });
+
+        // 1. GOOGLE İLE GİRİŞ FONKSİYONU
+        window.girisYapGoogle = function() {
+            window.auth.signInWithPopup(window.googleProvider)
+                .catch((error) => {
+                    console.error("Google Hatası:", error);
+                    alert("Google girişi başarısız: " + error.message);
+                });
+        };
+
+        // 2. E-POSTA İLE KAYIT/GİRİŞ FONKSİYONU
+        window.girisYapEmail = function() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const username = document.getElementById('authUsername').value.trim();
+
+            if (!email || !password) {
+                alert("E-posta ve şifre zorunludur.");
+                return;
+            }
+
+            // Önce giriş yapmayı dener, hesap yoksa kayıt eder.
+            window.auth.signInWithEmailAndPassword(email, password)
+                .catch((error) => {
+                    if (error.code === 'auth/user-not-found') {
+                        if(!username) {
+                            alert("Bu e-posta kayıtlı değil. Kayıt olmak için lütfen bir kullanıcı adı da yazın.");
+                            return;
+                        }
+                        window.auth.createUserWithEmailAndPassword(email, password)
+                            .then((userCred) => {
+                                return userCred.user.updateProfile({ displayName: username });
+                            })
+                            .catch(err => alert("Kayıt Hatası: " + err.message));
+                    } else {
+                        alert("Giriş Hatası: " + error.message);
+                    }
+                });
+        };
+
+        // 3. ÇIKIŞ YAP FONKSİYONU
+        window.cikisYap = function() {
+            window.auth.signOut().then(() => {
+                window.location.reload(); 
+            });
+        };
+    </script>
+    
+    <script src="script.js"></script>
+</body>
+</html>
