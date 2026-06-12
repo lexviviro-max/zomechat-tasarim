@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZOMEchat - Giriş Yap</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* KENDİ ORİJİNAL MOR VE SİYAH TASARIMIN */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #0b0c10;
+            color: #c5c6c7;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #loginScreen {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-box {
+            background-color: #15191e;
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid #2c3540;
+            width: 420px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .login-box h1 {
+            font-size: 36px;
+            margin-bottom: 5px;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+
+        .login-box h1 span {
+            color: #8a2be2;
+        }
+
+        .login-box p {
+            color: #667085;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .google-btn {
+            width: 100%;
+            background-color: #1c222b;
+            color: #fff;
+            border: 1px solid #333c4d;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .google-btn:hover {
+            background-color: #252d3a;
+            border-color: #45546c;
+        }
+
+        .or-divider {
+            margin: 25px 0;
+            color: #475467;
+            position: relative;
+            font-size: 13px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #2c3540;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            cursor: pointer;
+            color: #667085;
+            font-weight: 600;
+            font-size: 15px;
+            transition: color 0.2s;
+            text-align: center;
+        }
+
+        .tab.active {
+            color: #8a2be2;
+            border-bottom: 2px solid #8a2be2;
+            margin-bottom: -1px;
+        }
+
+        .login-form input {
+            width: 100%;
+            background-color: #1c222b;
+            border: 1px solid #2c3540;
+            padding: 14px;
+            border-radius: 10px;
+            color: #fff;
+            margin-bottom: 16px;
+            outline: none;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .login-form input:focus {
+            border-color: #8a2be2;
+        }
+
+        .login-form button {
+            width: 100%;
+            background-color: #8a2be2;
+            color: #fff;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+
+        .login-form button:hover {
+            background-color: #7322bd;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loginScreen">
+        <div class="login-box">
+            <h1>ZOME<span>chat</span></h1>
+            <p>Devam etmek için giriş yapın veya kayıt olun.</p>
+            
+            <button class="google-btn" id="googleLoginBtn">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google__G__Logo.svg" alt="Google" width="18"> Google ile Giriş Yap
+            </button>
+            
+            <div class="or-divider">veya e-posta kullanın</div>
+            
+            <div class="tabs">
+                <div class="tab active" id="tabLogin" onclick="switchTab('login')">Giriş Yap</div>
+                <div class="tab" id="tabRegister" onclick="switchTab('register')">Kayıt Ol</div>
+            </div>
+            
+            <div class="login-form">
+                <input type="text" id="authUsername" placeholder="Kullanıcı Adınız" style="display: none;">
+                <input type="email" id="authEmail" placeholder="E-posta Adresiniz">
+                <input type="password" id="authPassword" placeholder="Şifreniz">
+                <button id="authSubmitBtn" onclick="handleAuthSubmit()">Giriş Yap</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <script>
+        // PANELİNDEN ALINAN %100 GERÇEK VE DOĞRU KİMLİK BİLGİLERİ
+        const firebaseConfig = {
+            apiKey: "AIzaSyDjfL1MIzV_ILaFMjpjags53Yi9Zz6mDHA",
+            authDomain: "proje-gir.firebaseapp.com",
+            projectId: "proje-gir",
+            storageBucket: "proje-gir.firebasestorage.app",
+            messagingSenderId: "790926962812",
+            appId: "1:790926962812:web:35ca08a8b2276609afd9f9"
+        };
+        
+        // Firebase'i güvenli bir şekilde başlatma
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        // script.js dosyasının window.auth hatası vermemesi için global değişkenleri tanımlıyoruz
+        window.auth = firebase.auth();
+        window.googleProvider = new firebase.auth.GoogleAuthProvider();
+
+        let currentMode = 'login';
+
+        function switchTab(mode) {
+            currentMode = mode;
+            document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
+            document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
+            document.getElementById('authUsername').style.style.display = mode === 'register' ? 'block' : 'none';
+            document.getElementById('authSubmitBtn').innerText = mode === 'register' ? 'Kayıt Ol' : 'Giriş Yap';
+        }
+
+        // Klasik Giriş ve Kayıt İşlemleri Yönetimi
+        async function handleAuthSubmit() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const username = document.getElementById('authUsername').value.trim();
+
+            if(!email || !password) { 
+                alert("Lütfen e-posta ve şifre alanlarını boş bırakmayın."); 
+                return; 
+            }
+
+            try {
+                if (currentMode === 'register') {
+                    if(!username) { alert("Lütfen kendinize bir kullanıcı adı belirleyin."); return; }
+                    const result = await auth.createUserWithEmailAndPassword(email, password);
+                    await result.user.updateProfile({ displayName: username });
+                    if(typeof window.startAppWithUser === 'function') {
+                        window.startAppWithUser(username);
+                    } else {
+                        alert("Kayıt başarılı! Sohbet uygulaması başlatılıyor...");
+                        window.location.reload();
+                    }
+                } else {
+                    const result = await auth.signInWithEmailAndPassword(email, password);
+                    const displayName = result.user.displayName || result.user.email.split('@')[0];
+                    if(typeof window.startAppWithUser === 'function') {
+                        window.startAppWithUser(displayName);
+                    } else {
+                        alert("Giriş başarılı!");
+                        window.location.reload();
+                    }
+                }
+            } catch (error) {
+                let turkceHata = error.message;
+                if(error.code === "auth/invalid-credential") turkceHata = "E-posta veya şifre hatalı. Lütfen kontrol edin.";
+                if(error.code === "auth/email-already-in-use") turkceHata = "Bu e-posta adresi zaten kullanımda. Giriş yapmayı deneyin.";
+                if(error.code === "auth/weak-password") turkceHata = "Şifreniz çok zayıf. En az 6 karakter olmalıdır.";
+                alert("İşlem Başarısız: " + turkceHata);
+            }
+        }
+
+        // Google Popup Giriş Tetikleyicisi
+        document.getElementById('googleLoginBtn').addEventListener('click', async () => {
+            try {
+                const result = await auth.signInWithPopup(googleProvider);
+                const displayName = result.user.displayName || "Kullanıcı";
+                if(typeof window.startAppWithUser === 'function') {
+                    window.startAppWithUser(displayName);
+                } else {
+                    alert("Google ile giriş başarılı: " + displayName);
+                }
+            } catch (error) {
+                alert("Google Giriş Hatası: " + error.message);
+            }
+        });
+    </script>
+
+    <script src="script.js"></script>
+</body>
+</html>
